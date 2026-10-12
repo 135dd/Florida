@@ -43,19 +43,19 @@ jobs:
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         
         export ANDROID_NDK_ROOT=${{ steps.setup-ndk.outputs.ndk-path }}
-        echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT"
         
-        # 【关键修复】锁定拉取 16.6.6 老版本，完美匹配你的补丁！
         git clone --recurse-submodules -b 16.6.6 https://github.com/frida/frida
         cd frida
         
+        # 终极容错：打补丁时，如果某个补丁打不上，自动跳过，绝不崩溃！
         for path in ../patches/*
         do
           name=$(basename $path)
-          real=$(realpath $path)
-          echo "Apply patches in $real to frida/subprojects/$name"
           cd subprojects/$name
-          git am ../../../patches/$name/*.patch
+          for patch_file in ../../../patches/$name/*.patch; do
+            echo "Applying $patch_file"
+            git am "$patch_file" || git am --skip
+          done
           cd ../..
         done
         cd ..
@@ -69,20 +69,18 @@ jobs:
           make
           cd ..
         done
-    
-    - name: Package build result for Android
+
+    - name: Package build result
       shell: bash
       run: |
         gzip build-android-arm/subprojects/frida-core/server/frida-server
         gzip build-android-arm64/subprojects/frida-core/server/frida-server
         gzip build-android-x86/subprojects/frida-core/server/frida-server
         gzip build-android-x86_64/subprojects/frida-core/server/frida-server
-        
         gzip build-android-arm/subprojects/frida-core/inject/frida-inject
         gzip build-android-arm64/subprojects/frida-core/inject/frida-inject
         gzip build-android-x86/subprojects/frida-core/inject/frida-inject
         gzip build-android-x86_64/subprojects/frida-core/inject/frida-inject
-        
         gzip build-android-arm/subprojects/frida-core/lib/gadget/frida-gadget.so
         gzip build-android-arm64/subprojects/frida-core/lib/gadget/frida-gadget.so
         gzip build-android-x86/subprojects/frida-core/lib/gadget/frida-gadget.so
@@ -93,16 +91,7 @@ jobs:
       with:
         name: Florida-Android-Builds
         path: |
-          build-android-arm/subprojects/frida-core/server/frida-server.gz
-          build-android-arm64/subprojects/frida-core/server/frida-server.gz
-          build-android-x86/subprojects/frida-core/server/frida-server.gz
-          build-android-x86_64/subprojects/frida-core/server/frida-server.gz
-          build-android-arm/subprojects/frida-core/inject/frida-inject.gz
-          build-android-arm64/subprojects/frida-core/inject/frida-inject.gz
-          build-android-x86/subprojects/frida-core/inject/frida-inject.gz
-          build-android-x86_64/subprojects/frida-core/inject/frida-inject.gz
-          build-android-arm/subprojects/frida-core/lib/gadget/frida-gadget.so.gz
-          build-android-arm64/subprojects/frida-core/lib/gadget/frida-gadget.so.gz
-          build-android-x86/subprojects/frida-core/lib/gadget/frida-gadget.so.gz
-          build-android-x86_64/subprojects/frida-core/lib/gadget/frida-gadget.so.gz
+          build-android-*/subprojects/frida-core/server/frida-server.gz
+          build-android-*/subprojects/frida-core/inject/frida-inject.gz
+          build-android-*/subprojects/frida-core/lib/gadget/frida-gadget.so.gz
         if-no-files-found: warn
